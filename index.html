@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <!-- iOS Standalone Mode -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CalcPro+">
+    <meta name="theme-color" content="#0f172a">
+
+    <title>Calculator Pro+ | Ultimate Mobile Math</title>
+
+    <!-- Preload Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- VARIABLES & RESET --- */
+        :root {
+            /* Palette */
+            --bg-dark: #0f172a;
+            --glass-panel: rgba(30, 41, 59, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #fbbf24; 
+            --primary-glow: rgba(251, 191, 36, 0.4);
+            --success: #34d399;
+            --danger: #f87171;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+
+            /* Dimensions */
+            --safe-top: env(safe-area-inset-top, 20px);
+            --safe-bottom: env(safe-area-inset-bottom, 20px);
+
+            /* Animation */
+            --ease-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Animated Background Mesh */
+        .bg-mesh {
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: 
+                radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(52, 211, 153, 0.05) 0%, transparent 40%);
+            animation: rotateMesh 20s linear infinite;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        @keyframes rotateMesh {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* --- ICONS (SVG) --- */
+        .icon { width: 24px; height: 24px; fill: currentColor; }
+
+        /* --- LAYOUT CONTAINERS --- */
+        .app-view {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: var(--safe-top) 20px var(--safe-bottom) 20px;
+            z-index: 10;
+            transition: opacity 0.4s ease, transform 0.4s var(--ease-elastic);
+        }
+
+        .view-hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+        }
+
+        /* --- COMPONENTS --- */
+        .glass-card {
+            background: var(--glass-panel);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .number-font {
+            font-family: 'Space Grotesk', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Buttons */
+        .btn {
+            position: relative;
+            border: none;
+            outline: none;
+            background: var(--glass-panel);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 16px;
+            padding: 16px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn:active { transform: scale(0.96); background: rgba(255,255,255,0.1); }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #0f172a;
+            border: none;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }
+
+        .btn-lg {
+            width: 100%;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 20px;
+        }
+
+        /* --- HEADER & HUD --- */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 20;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score-pill {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            padding: 8px 16px;
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .score-label { font-size: 9px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; }
+        .score-val { font-size: 20px; font-weight: 700; color: var(--primary); line-height: 1; }
+
+        .pause-btn {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+        .pause-btn:active { background: rgba(255,255,255,0.1); }
+
+        /* Timer Bar */
+        .timer-track {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: -10px; /* Pull into safe area slightly */
+        }
+        .timer-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 100%;
+            transform-origin: left;
+            transition: transform 0.1s linear;
+        }
+        .timer-fill.critical { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+
+        /* --- GAMEPLAY AREA --- */
+        .problem-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .equation {
+            font-size: clamp(48px, 12vw, 80px);
+            font-weight: 300;
+            color: var(--text-main);
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            font-family: 'Space Grotesk', monospace;
+            transition: opacity 0.3s;
+        }
+
+        .numpad {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            width: 100%;
+            padding-bottom: 10px;
+        }
+
+        .pad-btn {
+            height: 80px;
+            font-size: 32px;
+            font-family: 'Space Grotesk', monospace;
+            border-radius: 20px;
+        }
+        .pad-btn.correct { background: var(--success) !important; color: #000; border-color: var(--success); }
+        .pad-btn.wrong { background: var(--danger) !important; color: #fff; border-color: var(--danger); animation: shake 0.4s; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* --- MENUS & MODALS --- */
+        #menuScreen {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 30px;
+        }
+
+        /* Unified Modal Styles (Pause & Game Over) */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.visible { opacity: 1; pointer-events: all; }
+
+        .modal-card {
+            width: 85%; max-width: 360px;
+            padding: 30px 24px;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s var(--ease-elastic);
+        }
+        .modal-overlay.visible .modal-card { transform: scale(1); }
+
+        .modal-title { font-size: 24px; font-weight: 700; margin-bottom: 5px; }
+        .modal-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 25px; }
+
+        .menu-list { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+
+        /* Difficulty Selector Style */
+        .diff-opt {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 24px; text-align: left;
+        }
+        .diff-opt.active { border-color: var(--primary); background: rgba(251, 191, 36, 0.1); }
+        .diff-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--text-muted); }
+        .diff-opt.active .diff-dot { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
+
+        /* Floating Text */
+        .floating-text {
+            position: fixed; pointer-events: none;
+            font-weight: 800; font-size: 24px; z-index: 50;
+            animation: floatUp 0.8s forwards;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(0.8); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.2); }
+        }
+
+        /* Confetti Canvas */
+        #confettiCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
+
+        .streak-badge {
+            position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+            background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px;
+            font-size: 12px; color: var(--success); font-weight: 700;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .streak-badge.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div class="bg-mesh"></div>
+    <canvas id="confettiCanvas"></canvas>
+
+    <!-- MENU SCREEN -->
+    <div id="menuScreen" class="app-view">
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; width: 100%;">
+            <div style="margin-bottom: 40px;">
+                <div style="width: 80px; height: 80px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #000; margin: 0 auto 15px; box-shadow: 0 0 40px var(--primary-glow);">÷</div>
+                <h1 style="font-size: 32px; font-weight: 800; letter-spacing: -1px;">CalcPro<span style="color:var(--primary)">+</span></h1>
+                <p style="color:var(--text-muted); font-size: 14px; margin-top: 5px; letter-spacing: 2px; text-transform: uppercase;">Mental Math Mastery</p>
+            </div>
+
+            <div class="glass-card" style="padding: 20px; width: 100%; max-width: 340px; margin: 0 auto;">
+                <div style="font-size: 12px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 15px;">Select Difficulty</div>
+
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button class="btn diff-opt active" data-diff="easy">
+                        <div><div style="font-weight: 700;">Rookie</div><div style="font-size: 12px; color: var(--text-muted);">Simple (+, -)</div></div>
+                        <div class="diff-dot"></div>
+                    </button>
+                    <button class="btn diff-opt" data-diff="medium">
+                        <div><div style="font-weight: 700;">Pro</div><div style="font-size: 12px; color: var(--text-muted);">Mixed (+, -, ×)</div></div>
+                        <div class="diff-dot"></div>
+                    </button>
+                    <button class="btn diff-opt" data-diff="hard">
+                        <div><div style="font-weight: 700;">Legend</div><div style="font-size: 12px; color: var(--text-muted);">Complex Ops</div></div>
+                        <div class="diff-dot"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div style="width: 100%; max-width: 340px;">
+             <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 20px;">
+                <span style="color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">High Score</span>
+                <span class="number-font" style="color: var(--primary); font-weight: 700; font-size: 18px;" id="menuHighScore">0</span>
+            </div>
+            <button class="btn btn-primary btn-lg" id="startBtn">
+                <span>Start Game</span>
+                <svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="gameScreen" class="app-view view-hidden">
+
+        <!-- Header -->
+        <div class="game-header">
+            <div class="header-left">
+                <div class="score-pill">
+                    <span class="score-label">Score</span>
+                    <span class="score-val number-font" id="gameScore">0</span>
+                </div>
+            </div>
+
+            <button class="pause-btn" id="pauseBtn">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+        </div>
+
+        <!-- Timer Bar (Below Header) -->
+        <div style="position: relative; width: 100%; height: 6px; margin-bottom: 20px;">
+            <div class="timer-track">
+                <div class="timer-fill" id="timerBar"></div>
+            </div>
+        </div>
+
+        <!-- Streak Badge -->
+        <div class="streak-badge" id="streakBadge">🔥 STREAK x<span id="streakVal">0</span></div>
+
+        <!-- Problem Area -->
+        <div class="problem-area">
+            <div class="equation" id="equationDisplay">
+                <span id="eqLeft">0</span>
+                <span id="eqOp" style="color: var(--primary);">+</span>
+                <span id="eqRight">0</span>
+            </div>
+        </div>
+
+        <!-- Input Pad -->
+        <div class="numpad" id="choicesContainer">
+            <!-- Buttons injected by JS -->
+        </div>
+    </div>
+
+    <!-- PAUSE MENU MODAL -->
+    <div class="modal-overlay" id="pauseModal">
+        <div class="glass-card modal-card">
+            <h2 class="modal-title">Paused</h2>
+            <p class="modal-subtitle">Take a breather.</p>
+
+            <div class="menu-list">
+                <button class="btn btn-primary btn-lg" id="resumeBtn">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    Resume
+                </button>
+                <button class="btn" id="restartBtn_Pause">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    Restart
+                </button>
+                <button class="btn" id="homeBtn_Pause" style="color: var(--danger); border-color: rgba(248,113,113,0.3);">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    Quit Game
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div class="modal-overlay" id="gameOverModal">
+        <div class="glass-card modal-card">
+            <h2 class="modal-title" style="color: var(--primary);">Time's Up!</h2>
+            <p class="modal-subtitle">Great mental workout.</p>
+
+            <div style="font-size: 64px; font-weight: 700; line-height: 1; margin: 10px 0 20px;" class="number-font" id="finalScore">0</div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 25px;">
+                <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px;">
+                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Accuracy</div>
+                    <div class="number-font" style="font-size: 18px; font-weight: 700;" id="finalAcc">0%</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px;">
+                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Best Streak</div>
+                    <div class="number-font" style="font-size: 18px; font-weight: 700;" id="finalStreak">0</div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-lg" id="retryBtn" style="margin-bottom: 10px;">Play Again</button>
+            <button class="btn" id="homeBtn_Over" style="width: 100%;">Back to Home</button>
+        </div>
+    </div>
+
+    <script>
+        // --- AUDIO SYSTEM ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.2);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            } else if (type === 'click') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(800, now);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            }
+        }
+
+        // --- PARTICLE SYSTEM ---
+        const canvas = document.getElementById('confettiCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function createParticles(x, y, count = 20) {
+            for(let i=0; i<count; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
+                    life: 1, color: `hsl(${Math.random()*50 + 40}, 100%, 50%)`, size: Math.random() * 6 + 2
+                });
+            }
+        }
+
+        function updateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p, index) => {
+                p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.02;
+                ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+                if(p.life <= 0) particles.splice(index, 1);
+            });
+            requestAnimationFrame(updateParticles);
+        }
+        updateParticles();
+
+        // --- GAME LOGIC ---
+        class CalcGame {
+            constructor() {
+                this.state = {
+                    score: 0, timeLeft: 60, totalTime: 60,
+                    streak: 0, bestStreak: 0, correct: 0, total: 0,
+                    difficulty: 'easy', active: false, paused: false
+                };
+
+                this.dom = {
+                    screens: { menu: document.getElementById('menuScreen'), game: document.getElementById('gameScreen') },
+                    modals: { pause: document.getElementById('pauseModal'), over: document.getElementById('gameOverModal') },
+                    score: document.getElementById('gameScore'),
+                    timerBar: document.getElementById('timerBar'),
+                    equation: { left: document.getElementById('eqLeft'), right: document.getElementById('eqRight'), op: document.getElementById('eqOp') },
+                    choices: document.getElementById('choicesContainer'),
+                    streakBadge: document.getElementById('streakBadge'),
+                    streakVal: document.getElementById('streakVal'),
+                    highScoreMenu: document.getElementById('menuHighScore')
+                };
+
+                this.currentAnswer = 0;
+                this.timerInterval = null;
+                this.highScore = parseInt(localStorage.getItem('calcProPlus_HS')) || 0;
+                this.dom.highScoreMenu.textContent = this.highScore;
+
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                // Difficulty
+                document.querySelectorAll('.diff-opt').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.diff-opt').forEach(b => b.classList.remove('active'));
+                        e.currentTarget.classList.add('active');
+                        this.state.difficulty = e.currentTarget.dataset.diff;
+                        playSound('click');
+                    });
+                });
+
+                // Main Buttons
+                document.getElementById('startBtn').addEventListener('click', () => this.startGame());
+                document.getElementById('pauseBtn').addEventListener('click', () => this.pauseGame());
+
+                // Pause Menu
+                document.getElementById('resumeBtn').addEventListener('click', () => this.resumeGame());
+                document.getElementById('restartBtn_Pause').addEventListener('click', () => { this.closeModals(); this.startGame(); });
+                document.getElementById('homeBtn_Pause').addEventListener('click', () => { this.closeModals(); this.toMenu(); });
+
+                // Game Over Menu
+                document.getElementById('retryBtn').addEventListener('click', () => { this.closeModals(); this.startGame(); });
+                document.getElementById('homeBtn_Over').addEventListener('click', () => { this.closeModals(); this.toMenu(); });
+            }
+
+            toMenu() {
+                this.state.active = false;
+                this.dom.screens.game.classList.add('view-hidden');
+                this.dom.screens.menu.classList.remove('view-hidden');
+            }
+
+            startGame() {
+                this.state = { ...this.state, score: 0, timeLeft: 60, streak: 0, bestStreak: 0, correct: 0, total: 0, active: true, paused: false };
+                this.dom.score.textContent = '0';
+                this.dom.streakBadge.classList.remove('show');
+                this.dom.timerBar.style.transform = `scaleX(1)`;
+                this.dom.timerBar.classList.remove('critical');
+                this.dom.screens.menu.classList.add('view-hidden');
+                this.dom.screens.game.classList.remove('view-hidden');
+
+                this.nextQuestion();
+                this.startTimer();
+                playSound('click');
+            }
+
+            pauseGame() {
+                if(!this.state.active) return;
+                this.state.paused = true;
+                this.dom.modals.pause.classList.add('visible');
+                this.dom.equation.op.textContent = "II"; // Visual indicator
+            }
+
+            resumeGame() {
+                this.state.paused = false;
+                this.dom.modals.pause.classList.remove('visible');
+                this.dom.equation.op.textContent = this.currentOp === '*' ? '×' : this.currentOp;
+            }
+
+            closeModals() {
+                this.dom.modals.pause.classList.remove('visible');
+                this.dom.modals.over.classList.remove('visible');
+            }
+
+            startTimer() {
+                clearInterval(this.timerInterval);
+                this.timerInterval = setInterval(() => {
+                    if(this.state.paused || !this.state.active) return;
+
+                    this.state.timeLeft -= 0.1;
+                    const pct = this.state.timeLeft / this.state.totalTime;
+                    this.dom.timerBar.style.transform = `scaleX(${pct})`;
+
+                    if (this.state.timeLeft <= 10) this.dom.timerBar.classList.add('critical');
+                    if (this.state.timeLeft <= 0) this.endGame();
+                }, 100);
+            }
+
+            nextQuestion() {
+                let range = 20 + Math.floor(this.state.score / 500) * 10;
+                if(this.state.difficulty === 'medium') range = 50;
+                if(this.state.difficulty === 'hard') range = 100;
+
+                const ops = ['+'];
+                if(this.state.difficulty !== 'easy') ops.push('-');
+                if(this.state.difficulty !== 'easy' && (this.state.difficulty === 'hard' || Math.random() > 0.5)) ops.push('*');
+
+                const op = ops[Math.floor(Math.random() * ops.length)];
+                this.currentOp = op;
+                let n1, n2;
+
+                if (op === '+') {
+                    n1 = Math.floor(Math.random() * range) + 1;
+                    n2 = Math.floor(Math.random() * range) + 1;
+                    this.currentAnswer = n1 + n2;
+                } else if (op === '-') {
+                    n1 = Math.floor(Math.random() * range) + 5;
+                    n2 = Math.floor(Math.random() * n1);
+                    this.currentAnswer = n1 - n2;
+                } else {
+                    let mRange = 10 + Math.floor(this.state.score / 1000);
+                    n1 = Math.floor(Math.random() * mRange) + 2;
+                    n2 = Math.floor(Math.random() * mRange) + 2;
+                    this.currentAnswer = n1 * n2;
+                }
+
+                this.dom.equation.left.textContent = n1;
+                this.dom.equation.right.textContent = n2;
+                this.dom.equation.op.textContent = op === '*' ? '×' : op;
+
+                this.generateChoices(this.currentAnswer);
+            }
+
+            generateChoices(correct) {
+                let choices = new Set([correct]);
+                while(choices.size < 4) {
+                    let offset = Math.floor(Math.random() * 10) + 1;
+                    if(Math.random() > 0.5) offset *= -1;
+                    let val = correct + offset;
+                    if(val >= 0) choices.add(val);
+                }
+
+                const arr = Array.from(choices).sort(() => Math.random() - 0.5);
+                this.dom.choices.innerHTML = '';
+                arr.forEach(num => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn pad-btn glass-card';
+                    btn.textContent = num;
+
+                    const handleInput = (e) => {
+                         // e.preventDefault(); 
+                         if(btn.disabled) return;
+                         this.handleInput(num, btn, e);
+                    };
+
+                    btn.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(e); }, {passive: false});
+                    btn.addEventListener('click', handleInput);
+
+                    this.dom.choices.appendChild(btn);
+                });
+            }
+
+            handleInput(val, btn, e) {
+                if(!this.state.active || this.state.paused) return;
+                const allBtns = document.querySelectorAll('.pad-btn');
+                allBtns.forEach(b => b.disabled = true);
+                this.state.total++;
+
+                const touch = e.touches ? e.touches[0] : (e.clientX ? e : {clientX: window.innerWidth/2, clientY: window.innerHeight/2});
+                const x = touch.clientX;
+                const y = touch.clientY;
+
+                if (val === this.currentAnswer) {
+                    btn.classList.add('correct');
+                    this.state.streak++;
+                    this.state.correct++;
+                    if(this.state.streak > this.state.bestStreak) this.state.bestStreak = this.state.streak;
+
+                    let points = 50 + (this.state.streak * 5);
+                    this.state.score += points;
+                    this.state.timeLeft = Math.min(this.state.totalTime, this.state.timeLeft + 1.5);
+
+                    this.showFloatText(x, y, `+${points}`, '#34d399');
+                    if(this.state.streak % 5 === 0) createParticles(x, y, 30);
+                    playSound('correct');
+
+                    setTimeout(() => { this.updateDisplay(); this.nextQuestion(); }, 100);
+                } else {
+                    btn.classList.add('wrong');
+                    allBtns.forEach(b => { if(parseInt(b.textContent) === this.currentAnswer) b.classList.add('correct'); });
+                    this.state.streak = 0;
+                    this.state.timeLeft -= 3;
+                    this.showFloatText(x, y, `Miss!`, '#f87171');
+                    if(navigator.vibrate) navigator.vibrate(200);
+                    playSound('wrong');
+                    setTimeout(() => { this.updateDisplay(); this.nextQuestion(); }, 800);
+                }
+            }
+
+            showFloatText(x, y, text, color) {
+                const el = document.createElement('div');
+                el.className = 'floating-text';
+                el.textContent = text;
+                el.style.color = color;
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 800);
+            }
+
+            updateDisplay() {
+                this.dom.score.textContent = this.state.score;
+                if(this.state.streak > 2) {
+                    this.dom.streakBadge.classList.add('show');
+                    this.dom.streakVal.textContent = this.state.streak;
+                } else {
+                    this.dom.streakBadge.classList.remove('show');
+                }
+            }
+
+            endGame() {
+                this.state.active = false;
+                clearInterval(this.timerInterval);
+                document.getElementById('finalScore').textContent = this.state.score;
+                document.getElementById('finalStreak').textContent = this.state.bestStreak;
+                const acc = this.state.total === 0 ? 0 : Math.round((this.state.correct / this.state.total) * 100);
+                document.getElementById('finalAcc').textContent = acc + '%';
+
+                if (this.state.score > this.highScore) {
+                    this.highScore = this.state.score;
+                    localStorage.setItem('calcProPlus_HS', this.highScore);
+                    this.dom.highScoreMenu.textContent = this.highScore;
+                    createParticles(window.innerWidth/2, window.innerHeight/2, 50);
+                }
+                this.dom.modals.over.classList.add('visible');
+                playSound('wrong');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+            new CalcGame();
+        });
+    </script>
+</body>
+</html>
+
